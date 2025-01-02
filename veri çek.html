@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Canlı Mum Grafiği</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .container {
+            width: 90%;
+            margin: 20px auto;
+        }
+        #symbolSelector {
+            margin: 10px;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <select id="symbolSelector">
+            <option value="BTCUSDT">BTC/USDT</option>
+            <option value="ETHUSDT">ETH/USDT</option>
+            <option value="BNBUSDT">BNB/USDT</option>
+            <option value="ADAUSDT">ADA/USDT</option>
+        </select>
+        <div id="chart"></div>
+    </div>
+
+<script>
+let chart;
+let symbol = 'BTCUSDT';
+
+// Sembol seçici değiştiğinde
+document.getElementById('symbolSelector').addEventListener('change', function() {
+    symbol = this.value;
+    updateChart();
+});
+
+// Tarihi formatlama fonksiyonu
+function formatDate(timestamp) {
+    const date = new Date(timestamp);
+    return date.toLocaleString();
+}
+
+// Veri çekme fonksiyonu
+async function fetchData() {
+    try {
+        const interval = '15m'; // 15 dakikalık
+        const limit = 96; // Son 24 saat (24 * 4 = 96 15-dakikalık mum)
+        const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+        const data = await response.json();
+
+        const timestamps = data.map(d => new Date(d[0]));
+        const opens = data.map(d => parseFloat(d[1]));
+        const highs = data.map(d => parseFloat(d[2]));
+        const lows = data.map(d => parseFloat(d[3]));
+        const closes = data.map(d => parseFloat(d[4]));
+
+        return {
+            timestamps,
+            opens,
+            highs,
+            lows,
+            closes
+        };
+    } catch (error) {
+        console.error('Veri çekme hatası:', error);
+        return null;
+    }
+}
+
+// Grafik güncelleme fonksiyonu
+async function updateChart() {
+    const data = await fetchData();
+    if (!data) return;
+
+    const trace = {
+        x: data.timestamps,
+        open: data.opens,
+        high: data.highs,
+        low: data.lows,
+        close: data.closes,
+        type: 'candlestick',
+        xaxis: 'x',
+        yaxis: 'y'
+    };
+
+    const layout = {
+        title: `${symbol} Mum Grafiği (15d)`,
+        dragmode: 'zoom',
+        showlegend: false,
+        xaxis: {
+            rangeslider: {
+                visible: false
+            },
+            title: 'Tarih'
+        },
+        yaxis: {
+            title: 'Fiyat'
+        }
+    };
+
+    if (!chart) {
+        Plotly.newPlot('chart', [trace], layout);
+        chart = document.getElementById('chart');
+    } else {
+        Plotly.react('chart', [trace], layout);
+    }
+}
+
+// İlk yükleme
+updateChart();
+
+// Her 15 saniyede bir güncelle
+setInterval(updateChart, 15000);
+</script>
+</body>
+</html>
